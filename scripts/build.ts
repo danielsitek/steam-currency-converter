@@ -6,7 +6,9 @@ const outdir = join(root, "dist");
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 const result = await Bun.build({
-  entrypoints: ["src/background.ts", "src/content.ts", "src/options.ts"].map((path) => join(root, path)),
+  entrypoints: ["src/background.ts", "src/content.ts", "src/options.ts"].map((path) =>
+    join(root, path),
+  ),
   outdir,
   target: "browser",
   format: "iife",

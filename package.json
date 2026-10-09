@@ -5,13 +5,20 @@
   "type": "module",
   "scripts": {
     "build": "bun run scripts/build.ts",
-    "check": "tsc --noEmit && bun test && bun run build",
+    "check": "bun run format:check && bun run lint && tsc --noEmit && bun test && bun run build",
+    "format": "prettier --write src scripts public package.json tsconfig.json README.md eslint.config.mjs .prettierrc.json",
+    "format:check": "prettier --check src scripts public package.json tsconfig.json README.md eslint.config.mjs .prettierrc.json",
+    "lint": "eslint src scripts",
     "test": "bun test"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
     "@types/chrome": "0.0.280",
     "@types/node": "26.6.4",
-    "typescript": "5.9.3"
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.1"
   }
 }

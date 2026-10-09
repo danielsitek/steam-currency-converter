@@ -15,10 +15,15 @@ function getRate(from: Currency, to: Currency): Promise<Rate | null> {
   const key = `${from}:${to}`;
   const existing = rates.get(key);
   if (existing) return existing;
-  const request = chrome.runtime.sendMessage({ type: "getRate", from, to })
+  const request = chrome.runtime
+    .sendMessage({ type: "getRate", from, to })
     .then((result: unknown): Rate | null => {
-      if (!result || typeof result !== "object" || !("rate" in result) || !("date" in result)) return null;
-      return typeof result.rate === "number" && Number.isFinite(result.rate) && result.rate > 0 && typeof result.date === "string"
+      if (!result || typeof result !== "object" || !("rate" in result) || !("date" in result))
+        return null;
+      return typeof result.rate === "number" &&
+        Number.isFinite(result.rate) &&
+        result.rate > 0 &&
+        typeof result.date === "string"
         ? { rate: result.rate, date: result.date }
         : null;
     })
@@ -29,7 +34,10 @@ function getRate(from: Currency, to: Currency): Promise<Rate | null> {
 }
 
 function format(amount: number, currency: Currency): string {
-  return new Intl.NumberFormat(navigator.language || "cs-CZ", { style: "currency", currency }).format(amount);
+  return new Intl.NumberFormat(navigator.language || "cs-CZ", {
+    style: "currency",
+    currency,
+  }).format(amount);
 }
 
 function setTooltip(node: Text, original: string, date: string): void {
@@ -85,13 +93,20 @@ async function convertLabel(element: Element): Promise<void> {
   const matches = findPrices(original);
   if (matches.length === 0) return;
   const requestedTarget = target;
-  const replacements = await Promise.all(matches.map(async (match) => {
-    const price = parsePrice(match.text)!;
-    if (price.currency === requestedTarget) return match.text;
-    const rate = await getRate(price.currency, requestedTarget);
-    return rate ? format(price.amount * rate.rate, requestedTarget) : match.text;
-  }));
-  if (target !== requestedTarget || element.getAttribute("aria-label") !== current || !element.isConnected) return;
+  const replacements = await Promise.all(
+    matches.map(async (match) => {
+      const price = parsePrice(match.text)!;
+      if (price.currency === requestedTarget) return match.text;
+      const rate = await getRate(price.currency, requestedTarget);
+      return rate ? format(price.amount * rate.rate, requestedTarget) : match.text;
+    }),
+  );
+  if (
+    target !== requestedTarget ||
+    element.getAttribute("aria-label") !== current ||
+    !element.isConnected
+  )
+    return;
   let rendered = "";
   let offset = 0;
   matches.forEach((match, index) => {
@@ -141,5 +156,11 @@ new MutationObserver((records) => {
     if (record.type === "characterData" || record.type === "attributes") queue(record.target);
     else for (const node of record.addedNodes) queue(node);
   }
-}).observe(document.documentElement, { childList: true, characterData: true, attributes: true, attributeFilter: ["aria-label"], subtree: true });
+}).observe(document.documentElement, {
+  childList: true,
+  characterData: true,
+  attributes: true,
+  attributeFilter: ["aria-label"],
+  subtree: true,
+});
 void loadCurrency();

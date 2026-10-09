@@ -21,5 +21,9 @@ test("ignores non-price and ambiguous text", () => {
 });
 
 test("finds both prices in a sale accessibility label", () => {
-  expect(findPrices("50% off (29,99€ normally, 14,99€ after discount)").map((match) => match.text.trim())).toEqual(["29,99€", "14,99€"]);
+  expect(
+    findPrices("50% off (29,99€ normally, 14,99€ after discount)").map((match) =>
+      match.text.trim(),
+    ),
+  ).toEqual(["29,99€", "14,99€"]);
 });
