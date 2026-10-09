@@ -1,0 +1,9 @@
+:root { color-scheme: dark; font: 16px system-ui, sans-serif; }
+body { margin: 0; min-width: 280px; background: #171d25; color: #f4f7fa; }
+main { box-sizing: border-box; max-width: 480px; margin: 0 auto; padding: 28px; }
+h1 { font-size: 1.4rem; margin: 0 0 28px; }
+label { display: block; margin-bottom: 8px; font-weight: 600; }
+select { box-sizing: border-box; width: 100%; padding: 10px; font: inherit; color: #fff; background: #263648; border: 1px solid #6a879e; border-radius: 6px; }
+select:focus-visible { outline: 2px solid #a6d8ff; outline-offset: 2px; }
+#status { min-height: 1.4em; color: #a6d8ff; }
+.note { margin-top: 24px; line-height: 1.5; color: #b8c7d4; font-size: .9rem; }

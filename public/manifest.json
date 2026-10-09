@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Steam Currency Converter",
+  "version": "0.1.0",
+  "description": "Show approximate Steam prices in your chosen currency.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://api.frankfurter.dev/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://store.steampowered.com/app/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "action": { "default_title": "Steam Currency Converter", "default_popup": "options.html" }
+}

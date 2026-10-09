@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Steam Currency Converter — nastavení</title>
+    <link rel="stylesheet" href="options.css">
+    <script src="options.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <h1>Steam Currency Converter</h1>
+      <label for="currency">Zobrazovat ceny v měně</label>
+      <select id="currency">
+        <option value="CZK">CZK — česká koruna</option>
+        <option value="EUR">EUR — euro</option>
+        <option value="USD">USD — americký dolar</option>
+        <option value="GBP">GBP — britská libra</option>
+        <option value="PLN">PLN — polský zlotý</option>
+        <option value="CHF">CHF — švýcarský frank</option>
+        <option value="HUF">HUF — maďarský forint</option>
+        <option value="SEK">SEK — švédská koruna</option>
+        <option value="NOK">NOK — norská koruna</option>
+        <option value="DKK">DKK — dánská koruna</option>
+        <option value="CAD">CAD — kanadský dolar</option>
+        <option value="AUD">AUD — australský dolar</option>
+      </select>
+      <p id="status" role="status" aria-live="polite"></p>
+      <p class="note">Zobrazená cena je orientační přepočet. Platba na Steamu probíhá v původní měně a banka může použít jiný kurz.</p>
+    </main>
+  </body>
+</html>
