@@ -15,11 +15,11 @@ async function getRate(from: Currency, to: Currency): Promise<Rate> {
   const request = (async () => {
     try {
       const response = await fetch(`https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`);
-      if (!response.ok) throw new Error(`Kurzová služba odpověděla HTTP ${response.status}`);
+      if (!response.ok) throw new Error(`Exchange rate service returned HTTP ${response.status}`);
       const data: unknown = await response.json();
-      if (!data || typeof data !== "object" || !("rate" in data) || !("date" in data)) throw new Error("Neplatná odpověď kurzové služby");
+      if (!data || typeof data !== "object" || !("rate" in data) || !("date" in data)) throw new Error("Invalid exchange rate response");
       const { rate, date } = data;
-      if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0 || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Neplatný kurz");
+      if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0 || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid exchange rate");
       const value = { rate, date, fetchedAt: Date.now() };
       await chrome.storage.local.set({ [key]: value });
       return value;
@@ -38,6 +38,6 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
   if (!message || typeof message !== "object" || !("type" in message) || message.type !== "getRate" || !("from" in message) || !("to" in message) || !isCurrency(message.from) || !isCurrency(message.to)) return false;
   getRate(message.from, message.to)
     .then(({ rate, date }) => sendResponse({ rate, date }))
-    .catch((error: unknown) => sendResponse({ error: error instanceof Error ? error.message : "Kurz není dostupný" }));
+    .catch((error: unknown) => sendResponse({ error: error instanceof Error ? error.message : "Exchange rate unavailable" }));
   return true;
 });

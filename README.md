@@ -1,16 +1,16 @@
 # Steam Currency Converter
 
-Lehké rozšíření pro Chrome (Manifest V3), které na veřejných stránkách Steam Store zobrazí samostatně uvedené ceny v nastavené měně. Výchozí měna je CZK. Kurz získává z [Frankfurter API](https://frankfurter.dev/) a uchovává jej 12 hodin v lokální cache. Při výpadku služby použije poslední dostupný kurz. Původní cena zůstává v titulku po najetí myší.
+A lightweight Chrome extension (Manifest V3) that displays standalone prices on public Steam Store pages in your chosen currency. The default is CZK. It retrieves exchange rates from the [Frankfurter API](https://frankfurter.dev/) and caches them locally for 12 hours. If the service is unavailable, it uses the last cached rate. Hover over a converted price to see the original price and rate date.
 
-## Vývoj
+## Development
 
-Požadavky: [Bun](https://bun.sh/).
+Requirement: [Bun](https://bun.sh/).
 
 ```sh
 bun install
 bun run check
 ```
 
-Build vytvoří složku `dist/` s čistým JavaScriptem, HTML, CSS a manifestem. V Chrome otevřete `chrome://extensions`, zapněte režim vývojáře a přes **Načíst rozbalené** vyberte `dist/`. Měnu změníte kliknutím na ikonu rozšíření nebo na jeho stránce nastavení.
+The build creates `dist/` with plain JavaScript, HTML, CSS, and the manifest. In Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose `dist/`. Change the target currency by clicking the extension icon or opening its settings page.
 
-Rozšíření hledá samostatné cenové texty a cenové částky v popiscích `aria-label` na veřejných stránkách `store.steampowered.com`, včetně úvodní stránky, detailů her a vyhledávání; nespoléhá na CSS třídy Steamu. Zachovává okolní HTML, takže funguje i v kartách doporučených her a u slev. Nespouští se v košíku, pokladně, účtu, přihlášení ani na stránkách nákupu. Zdrojové měny rozpoznává pro EUR, USD, GBP, CZK, PLN a CHF; samotný symbol `$` interpretuje jako USD. Přepočet je orientační, není to cena účtovaná Steamem nebo bankou.
+The extension finds standalone price text and prices in `aria-label` attributes across public `store.steampowered.com` pages, including the home page, game details, and search results. It does not rely on Steam's CSS classes and preserves the surrounding HTML in recommendation cards and sale widgets. It does not run in the cart, checkout, account, sign-in, or purchase pages. It recognizes EUR, USD, GBP, CZK, PLN, and CHF as source currencies; a bare `$` is treated as USD. Converted prices are estimates, not the amounts charged by Steam or your bank.

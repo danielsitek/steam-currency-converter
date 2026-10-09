@@ -37,7 +37,7 @@ function setTooltip(node: Text, original: string, date: string): void {
   if (!element) return;
   const previous = addedTitles.get(element);
   if (element.hasAttribute("title") && element.title !== previous) return;
-  const title = `${original.trim()} · orientační kurz ${date}`;
+  const title = `${original.trim()} · estimated exchange rate from ${date}`;
   element.title = title;
   addedTitles.set(element, title);
 }

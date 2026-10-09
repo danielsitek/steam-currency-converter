@@ -10,8 +10,8 @@ void chrome.storage.sync.get("targetCurrency").then((settings) => {
 select.addEventListener("change", async () => {
   try {
     await chrome.storage.sync.set({ targetCurrency: select.value });
-    status.textContent = "Uloženo. Otevřené stránky Steamu se aktualizují automaticky.";
+    status.textContent = "Saved. Open Steam pages will update automatically.";
   } catch {
-    status.textContent = "Nastavení se nepodařilo uložit.";
+    status.textContent = "Could not save the setting.";
   }
 });
