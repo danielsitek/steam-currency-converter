@@ -8,6 +8,7 @@ const symbols: Record<string, Currency> = {
 };
 const token = "(?:€|£|\\$|Kč|zł|EUR|GBP|USD|CZK|PLN|CHF)";
 const pricePattern = new RegExp(`^\\s*(${token})?\\s*([0-9][0-9\\s\\u00a0\\u202f.,]*)\\s*(${token})?\\s*$`, "i");
+const embeddedPricePattern = new RegExp(`${token}\\s*[0-9][0-9\\s\\u00a0\\u202f.,]*|[0-9][0-9\\s\\u00a0\\u202f.,]*\\s*${token}`, "gi");
 
 export function isCurrency(value: unknown): value is Currency {
   return typeof value === "string" && TARGET_CURRENCIES.includes(value as Currency);
@@ -33,4 +34,12 @@ export function parsePrice(text: string): { amount: number; currency: Currency }
   const currency = prefix || suffix;
   if (!currency) return null;
   return { amount, currency };
+}
+
+export function findPrices(text: string): Array<{ start: number; end: number; text: string }> {
+  return Array.from(text.matchAll(embeddedPricePattern), (match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+    text: match[0],
+  })).filter((match) => parsePrice(match.text) !== null);
 }

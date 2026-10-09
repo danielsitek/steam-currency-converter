@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { parsePrice } from "./currency";
+import { findPrices, parsePrice } from "./currency";
 
 test("reads Steam's Czech euro prices and decimal separators", () => {
   expect(parsePrice("19,99€")).toEqual({ amount: 19.99, currency: "EUR" });
@@ -18,4 +18,8 @@ test("ignores non-price and ambiguous text", () => {
   expect(parsePrice("Free To Play")).toBeNull();
   expect(parsePrice("19,99")).toBeNull();
   expect(parsePrice("€19.99 USD")).toBeNull();
+});
+
+test("finds both prices in a sale accessibility label", () => {
+  expect(findPrices("50% sleva (běžně 29,99€, po slevě 14,99€)").map((match) => match.text.trim())).toEqual(["29,99€", "14,99€"]);
 });
