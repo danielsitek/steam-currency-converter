@@ -8,7 +8,14 @@
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
-      "matches": ["https://store.steampowered.com/app/*"],
+      "matches": ["https://store.steampowered.com/*"],
+      "exclude_matches": [
+        "https://store.steampowered.com/cart/*",
+        "https://store.steampowered.com/checkout/*",
+        "https://store.steampowered.com/account/*",
+        "https://store.steampowered.com/login/*",
+        "https://store.steampowered.com/purchase/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
