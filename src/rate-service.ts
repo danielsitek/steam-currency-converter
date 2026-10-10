@@ -12,8 +12,8 @@ function validDate(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function hasUsableRate(cached: Rate | undefined): cached is Rate {
-  return cached !== undefined && validRate(cached.rate);
+function hasUsableRate(value: unknown): value is Rate {
+  return value !== null && typeof value === "object" && "rate" in value && validRate(value.rate);
 }
 
 function parseRateResponse(data: unknown): Pick<Rate, "rate" | "date"> {
@@ -46,7 +46,7 @@ export async function getRate(from: Currency, to: Currency): Promise<Rate> {
 
   const key = `rate:${from}:${to}`;
   const stored = await chrome.storage.local.get(key);
-  const cached = stored[key] as Rate | undefined;
+  const cached: unknown = stored[key];
   if (hasUsableRate(cached) && Date.now() - cached.fetchedAt < TTL_MS) {
     return cached;
   }

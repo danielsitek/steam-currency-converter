@@ -73,6 +73,12 @@ test("returns a fresh cached rate without fetching", async () => {
   expect(await requestRate()).toEqual({ rate: 24, date: "2026-10-09" });
 });
 
+test("ignores a null value in storage and fetches a new rate", async () => {
+  storedRates.set("rate:EUR:CZK", null);
+
+  expect(await requestRate()).toEqual({ rate: 25, date: "2026-10-10" });
+});
+
 test("refreshes an expired rate and shares an in-flight request", async () => {
   storedRates.set("rate:EUR:CZK", {
     rate: 24,
