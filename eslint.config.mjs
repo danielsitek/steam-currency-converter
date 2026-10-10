@@ -11,5 +11,10 @@ export default tseslint.config(
     },
   },
   prettier,
-  { rules: { curly: ["error", "all"] } },
+  {
+    rules: {
+      curly: ["error", "all"],
+      complexity: ["error", { max: 10 }],
+    },
+  },
 );
