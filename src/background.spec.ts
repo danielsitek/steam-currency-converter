@@ -111,3 +111,9 @@ test("reports an error when no usable rate exists", async () => {
 
   expect(await requestRate()).toEqual({ error: "Exchange rate service returned HTTP 503" });
 });
+
+test("rejects malformed exchange rate data", async () => {
+  fetchRate = async () => new Response(JSON.stringify({ rate: -2, date: "today" }));
+
+  expect(await requestRate()).toEqual({ error: "Invalid exchange rate" });
+});
