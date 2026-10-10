@@ -26,7 +26,9 @@ const result = await Bun.build({
   minify: true,
 });
 if (!result.success) {
-  for (const log of result.logs) console.error(log);
+  for (const log of result.logs) {
+    console.error(log);
+  }
   process.exit(1);
 }
 await cp(join(root, "public"), outdir, { recursive: true });

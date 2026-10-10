@@ -44,11 +44,17 @@ export function isCurrency(value: unknown): value is Currency {
 
 export function parsePrice(text: string): { amount: number; currency: Currency } | null {
   const match = text.match(pricePattern);
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
   const prefix = match[1] ? (symbols[match[1]] ?? symbols[match[1].toUpperCase()]) : undefined;
   const suffix = match[3] ? (symbols[match[3]] ?? symbols[match[3].toUpperCase()]) : undefined;
-  if (!prefix && !suffix) return null;
-  if (prefix && suffix && prefix !== suffix) return null;
+  if (!prefix && !suffix) {
+    return null;
+  }
+  if (prefix && suffix && prefix !== suffix) {
+    return null;
+  }
   const raw = match[2].replace(/[\s\u00a0\u202f]/g, "");
   const comma = raw.lastIndexOf(",");
   const dot = raw.lastIndexOf(".");
@@ -56,11 +62,17 @@ export function parsePrice(text: string): { amount: number; currency: Currency }
   const hasCents = separator >= 0 && raw.length - separator - 1 === 2;
   const integer = hasCents ? raw.slice(0, separator) : raw;
   const cents = hasCents ? raw.slice(separator + 1) : "";
-  if (!/^\d[\d.,]*$/.test(integer) || (cents && !/^\d{2}$/.test(cents))) return null;
+  if (!/^\d[\d.,]*$/.test(integer) || (cents && !/^\d{2}$/.test(cents))) {
+    return null;
+  }
   const amount = Number(integer.replace(/[.,]/g, "") + (cents ? `.${cents}` : ""));
-  if (!Number.isFinite(amount)) return null;
+  if (!Number.isFinite(amount)) {
+    return null;
+  }
   const currency = prefix || suffix;
-  if (!currency) return null;
+  if (!currency) {
+    return null;
+  }
   return { amount, currency };
 }
 
