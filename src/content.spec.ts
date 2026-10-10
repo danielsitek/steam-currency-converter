@@ -6,6 +6,8 @@ const document = browserWindow.document;
 Object.defineProperty(browserWindow.navigator, "language", { configurable: true, value: "cs-CZ" });
 let targetCurrency = "CZK";
 let rateRequests = 0;
+let hidden = false;
+let frameCalls = 0;
 let replyToRateRequest: () => Promise<unknown> = async () => ({
   rate: 25,
   date: "2026-10-10",
@@ -19,9 +21,16 @@ for (const name of ["Node", "Element", "NodeFilter", "MutationObserver", "naviga
   });
 }
 Object.defineProperty(globalThis, "document", { configurable: true, value: document });
+Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
 Object.defineProperty(globalThis, "requestAnimationFrame", {
   configurable: true,
-  value: (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 0),
+  value: (callback: FrameRequestCallback) => {
+    frameCalls++;
+    if (!hidden) {
+      setTimeout(() => callback(performance.now()), 0);
+    }
+    return frameCalls;
+  },
 });
 Object.defineProperty(globalThis, "chrome", {
   configurable: true,
@@ -64,6 +73,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   document.body.replaceChildren();
   targetCurrency = "CZK";
+  hidden = false;
   rateRequests = 0;
   replyToRateRequest = async () => ({ rate: 25, date: "2026-10-10" });
   onStorageChanged({ targetCurrency: {} }, "sync");
@@ -141,4 +151,27 @@ test("ignores editable fields and converts newly inserted prices", async () => {
   await waitFor(() => price.textContent?.includes("Kč") ?? false);
 
   expect(editable.textContent).toBe("19,99€");
+});
+
+test("defers hidden-page mutations and scans the live page when visible again", async () => {
+  hidden = true;
+  document.dispatchEvent(new browserWindow.Event("visibilitychange"));
+  const callsBeforeMutations = frameCalls;
+
+  for (let index = 0; index < 5; index++) {
+    const removed = document.createElement("div");
+    removed.textContent = "19,99€";
+    document.body.replaceChildren(removed);
+    await Bun.sleep(1);
+  }
+  expect(frameCalls).toBe(callsBeforeMutations);
+
+  const livePrice = document.createElement("div");
+  livePrice.textContent = "29,99€";
+  document.body.replaceChildren(livePrice);
+  hidden = false;
+  document.dispatchEvent(new browserWindow.Event("visibilitychange"));
+
+  await waitFor(() => livePrice.textContent?.includes("Kč") ?? false);
+  expect(livePrice.textContent).toContain("749,75");
 });

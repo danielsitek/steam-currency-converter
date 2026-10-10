@@ -5,6 +5,8 @@ const rates = new Map<string, Promise<Rate | null>>();
 const queued = new Set<Node>();
 let target: Currency = DEFAULT_CURRENCY;
 let scheduled = false;
+let needsFullScan = false;
+let scheduleVersion = 0;
 
 function getRate(from: Currency, to: Currency): Promise<Rate | null> {
   const key = `${from}:${to}`;
@@ -33,20 +35,60 @@ function getRate(from: Currency, to: Currency): Promise<Rate | null> {
 
 const converter = createPriceConverter(getRate, () => target);
 
+function deferFullScan(): void {
+  queued.clear();
+  needsFullScan = true;
+  scheduled = false;
+  scheduleVersion++;
+}
+
 function queue(root: Node): void {
-  queued.add(root);
+  if (document.hidden) {
+    deferFullScan();
+    return;
+  }
+
+  if (needsFullScan) {
+    queued.clear();
+    queued.add(document.body);
+  } else if (root.isConnected) {
+    queued.add(root);
+  }
   if (scheduled) {
     return;
   }
+
   scheduled = true;
+  const version = ++scheduleVersion;
   requestAnimationFrame(() => {
+    if (version !== scheduleVersion) {
+      return;
+    }
     scheduled = false;
-    for (const node of queued) {
+    if (document.hidden) {
+      deferFullScan();
+      return;
+    }
+
+    const roots = Array.from(queued);
+    queued.clear();
+    needsFullScan = false;
+    for (const node of roots) {
+      if (!node.isConnected) {
+        continue;
+      }
       converter.scan(node);
     }
-    queued.clear();
   });
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    deferFullScan();
+  } else if (needsFullScan) {
+    queue(document.body);
+  }
+});
 
 async function loadCurrency(): Promise<void> {
   const settings = await chrome.storage.sync.get("targetCurrency");
