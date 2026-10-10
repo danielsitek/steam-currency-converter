@@ -18,12 +18,17 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
   const savedText = new WeakMap<Text, Saved>();
   const savedLabels = new WeakMap<Element, Saved>();
   const addedTitles = new WeakMap<HTMLElement, string>();
+  const formatters = new Map<string, Intl.NumberFormat>();
 
   function format(amount: number, currency: Currency): string {
-    return new Intl.NumberFormat(navigator.language || "cs-CZ", {
-      style: "currency",
-      currency,
-    }).format(amount);
+    const locale = navigator.language || "cs-CZ";
+    const key = `${locale}:${currency}`;
+    let formatter = formatters.get(key);
+    if (!formatter) {
+      formatter = new Intl.NumberFormat(locale, { style: "currency", currency });
+      formatters.set(key, formatter);
+    }
+    return formatter.format(amount);
   }
 
   function setTooltip(node: Text, original: string, date: string): void {
@@ -112,7 +117,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
 
     const replacements = await Promise.all(
       matches.map(async (match) => {
-        const price = parsePrice(match.text)!;
+        const price = match.price;
         if (price.currency === target) {
           return match.text;
         }

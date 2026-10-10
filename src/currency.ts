@@ -14,6 +14,8 @@ export const TARGET_CURRENCIES = [
   "AUD",
 ] as const;
 export type Currency = (typeof TARGET_CURRENCIES)[number];
+export type Price = { amount: number; currency: Currency };
+export type PriceMatch = { start: number; end: number; text: string; price: Price };
 
 const symbols: Record<string, Currency> = {
   "€": "EUR",
@@ -42,7 +44,7 @@ export function isCurrency(value: unknown): value is Currency {
   return typeof value === "string" && TARGET_CURRENCIES.includes(value as Currency);
 }
 
-export function parsePrice(text: string): { amount: number; currency: Currency } | null {
+export function parsePrice(text: string): Price | null {
   const match = text.match(pricePattern);
   if (!match) {
     return null;
@@ -76,10 +78,18 @@ export function parsePrice(text: string): { amount: number; currency: Currency }
   return { amount, currency };
 }
 
-export function findPrices(text: string): Array<{ start: number; end: number; text: string }> {
-  return Array.from(text.matchAll(embeddedPricePattern), (match) => ({
-    start: match.index,
-    end: match.index + match[0].length,
-    text: match[0],
-  })).filter((match) => parsePrice(match.text) !== null);
+export function findPrices(text: string): PriceMatch[] {
+  const matches: PriceMatch[] = [];
+  for (const match of text.matchAll(embeddedPricePattern)) {
+    const price = parsePrice(match[0]);
+    if (price) {
+      matches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0],
+        price,
+      });
+    }
+  }
+  return matches;
 }
