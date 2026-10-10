@@ -57,6 +57,24 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     addedTitles.delete(element);
   }
 
+  function restoreOriginalText(node: Text, original: string, target: Currency): void {
+    if (node.data !== original) {
+      node.data = original;
+    }
+    clearTooltip(node);
+    savedText.set(node, { original, rendered: original, target });
+  }
+
+  function textChangedWhileWaiting(node: Text, current: string, target: Currency): boolean {
+    return getTarget() !== target || node.data !== current || !node.isConnected;
+  }
+
+  function keepOriginalWhitespace(original: string, converted: string): string {
+    const leading = original.match(/^\s*/)?.[0] || "";
+    const trailing = original.match(/\s*$/)?.[0] || "";
+    return leading + converted + trailing;
+  }
+
   async function convertText(node: Text): Promise<void> {
     if (!node.isConnected || node.parentElement?.closest(ignored)) {
       return;
@@ -74,21 +92,15 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     }
 
     if (price.currency === target) {
-      if (current !== original) {
-        node.data = original;
-      }
-      clearTooltip(node);
-      savedText.set(node, { original, rendered: original, target });
+      restoreOriginalText(node, original, target);
       return;
     }
 
     const rate = await getRate(price.currency, target);
-    if (!rate || getTarget() !== target || node.data !== current || !node.isConnected) {
+    if (!rate || textChangedWhileWaiting(node, current, target)) {
       return;
     }
-    const leading = original.match(/^\s*/)?.[0] || "";
-    const trailing = original.match(/\s*$/)?.[0] || "";
-    const rendered = leading + format(price.amount * rate.rate, target) + trailing;
+    const rendered = keepOriginalWhitespace(original, format(price.amount * rate.rate, target));
     if (current !== rendered) {
       node.data = rendered;
     }
