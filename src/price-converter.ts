@@ -1,4 +1,4 @@
-import { findPrices, parsePrice, type Currency } from "./currency";
+import { findPrices, parsePrice, type Currency, type PriceMatch } from "./currency";
 
 export type Rate = { rate: number; date: string };
 type Saved = { original: string; rendered: string; target: Currency };
@@ -108,6 +108,36 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     savedText.set(node, { original, rendered, target });
   }
 
+  async function convertMatches(matches: PriceMatch[], target: Currency): Promise<string[]> {
+    return Promise.all(
+      matches.map(async ({ price, text }) => {
+        if (price.currency === target) {
+          return text;
+        }
+        const rate = await getRate(price.currency, target);
+        return rate ? format(price.amount * rate.rate, target) : text;
+      }),
+    );
+  }
+
+  function labelChangedWhileWaiting(element: Element, current: string, target: Currency): boolean {
+    return (
+      getTarget() !== target ||
+      element.getAttribute("aria-label") !== current ||
+      !element.isConnected
+    );
+  }
+
+  function replaceMatches(original: string, matches: PriceMatch[], replacements: string[]): string {
+    let rendered = "";
+    let offset = 0;
+    matches.forEach((match, index) => {
+      rendered += original.slice(offset, match.start) + replacements[index];
+      offset = match.end;
+    });
+    return rendered + original.slice(offset);
+  }
+
   async function convertLabel(element: Element): Promise<void> {
     if (!element.isConnected || element.closest(ignored)) {
       return;
@@ -127,30 +157,11 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
       return;
     }
 
-    const replacements = await Promise.all(
-      matches.map(async (match) => {
-        const price = match.price;
-        if (price.currency === target) {
-          return match.text;
-        }
-        const rate = await getRate(price.currency, target);
-        return rate ? format(price.amount * rate.rate, target) : match.text;
-      }),
-    );
-    if (
-      getTarget() !== target ||
-      element.getAttribute("aria-label") !== current ||
-      !element.isConnected
-    ) {
+    const replacements = await convertMatches(matches, target);
+    if (labelChangedWhileWaiting(element, current, target)) {
       return;
     }
-    let rendered = "";
-    let offset = 0;
-    matches.forEach((match, index) => {
-      rendered += original.slice(offset, match.start) + replacements[index];
-      offset = match.end;
-    });
-    rendered += original.slice(offset);
+    const rendered = replaceMatches(original, matches, replacements);
     if (current !== rendered) {
       element.setAttribute("aria-label", rendered);
     }
