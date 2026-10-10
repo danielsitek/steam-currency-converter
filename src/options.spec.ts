@@ -2,10 +2,18 @@ import { beforeAll, expect, test } from "bun:test";
 import { Window } from "happy-dom";
 
 const window = new Window();
-window.document.body.innerHTML =
-  '<select id="currency"><option value="CZK">CZK</option><option value="GBP">GBP</option></select><p id="status"></p>';
-const select = window.document.querySelector("#currency") as unknown as HTMLSelectElement;
-const status = window.document.querySelector("#status") as unknown as HTMLElement;
+const select = window.document.createElement("select");
+select.id = "currency";
+for (const currency of ["CZK", "GBP"]) {
+  const option = window.document.createElement("option");
+  option.value = currency;
+  option.textContent = currency;
+  select.append(option);
+}
+
+const status = window.document.createElement("p");
+status.id = "status";
+window.document.body.append(select, status);
 let savedCurrency: string | undefined;
 let rejectSave = false;
 
@@ -18,14 +26,15 @@ Object.defineProperty(globalThis, "chrome", {
   value: {
     storage: {
       sync: {
-        async get() {
-          return { targetCurrency: "GBP" };
+        get() {
+          return Promise.resolve({ targetCurrency: "GBP" });
         },
-        async set(settings: { targetCurrency: string }) {
+        set(settings: { targetCurrency: string }) {
           if (rejectSave) {
-            throw new Error("Storage unavailable");
+            return Promise.reject(new Error("Storage unavailable"));
           }
           savedCurrency = settings.targetCurrency;
+          return Promise.resolve();
         },
       },
     },
@@ -43,7 +52,7 @@ test("loads the saved target currency", async () => {
 
 test("saves a selected currency and reports success", async () => {
   select.value = "CZK";
-  select.dispatchEvent(new window.Event("change") as unknown as Event);
+  select.dispatchEvent(new window.Event("change"));
   await Bun.sleep(0);
 
   expect(savedCurrency).toBe("CZK");
@@ -53,7 +62,7 @@ test("saves a selected currency and reports success", async () => {
 test("reports a storage error", async () => {
   rejectSave = true;
   select.value = "GBP";
-  select.dispatchEvent(new window.Event("change") as unknown as Event);
+  select.dispatchEvent(new window.Event("change"));
   await Bun.sleep(0);
 
   expect(status.textContent).toBe("Could not save the setting.");
