@@ -11,7 +11,7 @@ bun install
 bun run check
 ```
 
-`bun run check` verifies formatting, lint rules (including braces and a cyclomatic complexity limit of 10), types, `*.spec.ts` tests, and the production build. Run `bun run format` to apply formatting changes.
+`bun run check` verifies formatting, lint rules (including braces and a cyclomatic complexity limit of 10), types, `*.spec.ts` tests with at least 90% line and function coverage, and the production build. Coverage is saved to `coverage/lcov.info`. Run `bun run format` to apply formatting changes.
 
 The build creates `dist/` with plain JavaScript, HTML, CSS, and the manifest. In Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose `dist/`. Change the target currency by clicking the extension icon or opening its settings page.
 
