@@ -3,6 +3,11 @@
   "name": "Steam Currency Converter",
   "version": "0.1.0",
   "description": "Show approximate Steam prices in your chosen currency.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": ["storage"],
   "host_permissions": ["https://api.frankfurter.dev/*"],
   "background": { "service_worker": "background.js" },
@@ -21,5 +26,13 @@
     }
   ],
   "options_page": "options.html",
-  "action": { "default_title": "Steam Currency Converter", "default_popup": "options.html" }
+  "action": {
+    "default_title": "Steam Currency Converter",
+    "default_popup": "options.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
 }
