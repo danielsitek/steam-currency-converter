@@ -24,4 +24,4 @@ The extension finds standalone price text and prices in `aria-label` attributes 
 
 ## Icon credit
 
-The extension icon uses the supplied green [`assets/tag.png`](assets/tag.png) artwork directly, with its transparent background preserved. The artwork is based on the **tag-price-line-duotone** icon from [Solar Icons by 480 Design](https://www.figma.com/community/file/1166831539721848736), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The extension icon uses the supplied green [`assets/tag.png`](assets/tag.png) artwork directly, with its transparent background preserved. Its tag shape is based on the **tag-price-line-duotone** icon from [Solar Icons by 480 Design](https://www.figma.com/community/file/1166831539721848736), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The center symbol is an exclamation mark.
