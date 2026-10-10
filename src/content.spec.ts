@@ -139,6 +139,39 @@ test("does not overwrite text changed while a rate request is pending", async ()
   expect(price.textContent).toBe("Free To Play");
 });
 
+test("does not apply a pending rate after the target currency changes", async () => {
+  let respond!: (value: unknown) => void;
+  replyToRateRequest = () => new Promise((resolve) => (respond = resolve));
+  const price = document.createElement("div");
+  price.textContent = "19,99€";
+  document.body.append(price);
+  await waitFor(() => typeof respond === "function");
+
+  targetCurrency = "EUR";
+  onStorageChanged({ targetCurrency: {} }, "sync");
+  respond({ rate: 25, date: "2026-10-10" });
+  await Bun.sleep(20);
+
+  expect(price.textContent).toBe("19,99€");
+  expect(price.hasAttribute("title")).toBe(false);
+});
+
+test("does not convert a node detached while its rate request is pending", async () => {
+  let respond!: (value: unknown) => void;
+  replyToRateRequest = () => new Promise((resolve) => (respond = resolve));
+  const price = document.createElement("div");
+  price.textContent = "19,99€";
+  document.body.append(price);
+  await waitFor(() => typeof respond === "function");
+
+  price.remove();
+  respond({ rate: 25, date: "2026-10-10" });
+  await Bun.sleep(20);
+
+  expect(price.textContent).toBe("19,99€");
+  expect(price.hasAttribute("title")).toBe(false);
+});
+
 test("ignores editable fields and converts newly inserted prices", async () => {
   const editable = document.createElement("div");
   editable.contentEditable = "true";
