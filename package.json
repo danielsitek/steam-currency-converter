@@ -6,9 +6,10 @@
   "packageManager": "bun@1.3.14",
   "scripts": {
     "build": "bun run scripts/build.ts",
+    "package": "bun run build && bun run scripts/package.ts",
     "check": "bun run format:check && bun run lint && tsc --noEmit && bun run test:coverage && bun run build",
-    "format": "prettier --write src scripts public package.json tsconfig.json README.md eslint.config.mjs .prettierrc.json",
-    "format:check": "prettier --check src scripts public package.json tsconfig.json README.md eslint.config.mjs .prettierrc.json",
+    "format": "prettier --write src scripts public docs .github package.json tsconfig.json README.md eslint.config.mjs .prettierrc.json",
+    "format:check": "prettier --check src scripts public docs .github package.json tsconfig.json README.md eslint.config.mjs .prettierrc.json",
     "lint": "eslint src scripts",
     "test": "bun test",
     "test:coverage": "bun test --coverage"
