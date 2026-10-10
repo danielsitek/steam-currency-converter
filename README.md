@@ -21,3 +21,7 @@ GitHub Actions runs the same gate on pull requests and pushes to `main`. See [Co
 The build creates `dist/` with plain JavaScript, HTML, CSS, and the manifest. In Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose `dist/`. Change the target currency by clicking the extension icon or opening its settings page.
 
 The extension finds standalone price text and prices in `aria-label` attributes across public `store.steampowered.com` pages, including the home page, game details, and search results. It does not rely on Steam's CSS classes and preserves the surrounding HTML in recommendation cards and sale widgets. It does not run in the cart, checkout, account, sign-in, or purchase pages. It recognizes EUR, USD, GBP, CZK, PLN, and CHF as source currencies; a bare `$` is treated as USD. Converted prices are estimates, not the amounts charged by Steam or your bank.
+
+## Icon credit
+
+The extension icon uses the supplied green [`assets/tag.png`](assets/tag.png) artwork directly, with its transparent background preserved. Its tag shape is based on the **tag-price-line-duotone** icon from [Solar Icons by 480 Design](https://www.figma.com/community/file/1166831539721848736), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The center symbol is an exclamation mark.
