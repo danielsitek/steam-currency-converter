@@ -44,20 +44,12 @@ export function isCurrency(value: unknown): value is Currency {
   return typeof value === "string" && TARGET_CURRENCIES.includes(value as Currency);
 }
 
-export function parsePrice(text: string): Price | null {
-  const match = text.match(pricePattern);
-  if (!match) {
-    return null;
-  }
-  const prefix = match[1] ? (symbols[match[1]] ?? symbols[match[1].toUpperCase()]) : undefined;
-  const suffix = match[3] ? (symbols[match[3]] ?? symbols[match[3].toUpperCase()]) : undefined;
-  if (!prefix && !suffix) {
-    return null;
-  }
-  if (prefix && suffix && prefix !== suffix) {
-    return null;
-  }
-  const raw = match[2].replace(/[\s\u00a0\u202f]/g, "");
+function resolveCurrency(token: string | undefined): Currency | undefined {
+  return token ? (symbols[token] ?? symbols[token.toUpperCase()]) : undefined;
+}
+
+function parseAmount(text: string): number | null {
+  const raw = text.replace(/[\s\u00a0\u202f]/g, "");
   const comma = raw.lastIndexOf(",");
   const dot = raw.lastIndexOf(".");
   const separator = Math.max(comma, dot);
@@ -68,11 +60,22 @@ export function parsePrice(text: string): Price | null {
     return null;
   }
   const amount = Number(integer.replace(/[.,]/g, "") + (cents ? `.${cents}` : ""));
-  if (!Number.isFinite(amount)) {
+  return Number.isFinite(amount) ? amount : null;
+}
+
+export function parsePrice(text: string): Price | null {
+  const match = text.match(pricePattern);
+  if (!match) {
     return null;
   }
-  const currency = prefix || suffix;
-  if (!currency) {
+  const prefix = resolveCurrency(match[1]);
+  const suffix = resolveCurrency(match[3]);
+  const currency = prefix ?? suffix;
+  if (!currency || (prefix && suffix && prefix !== suffix)) {
+    return null;
+  }
+  const amount = parseAmount(match[2]);
+  if (amount === null) {
     return null;
   }
   return { amount, currency };

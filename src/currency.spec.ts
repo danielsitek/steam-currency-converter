@@ -18,6 +18,12 @@ test("ignores non-price and ambiguous text", () => {
   expect(parsePrice("Free To Play")).toBeNull();
   expect(parsePrice("19,99")).toBeNull();
   expect(parsePrice("€19.99 USD")).toBeNull();
+  expect(parsePrice("€12,ab")).toBeNull();
+});
+
+test("accepts matching currency markers and grouped prices", () => {
+  expect(parsePrice("€1.299,99 EUR")).toEqual({ amount: 1299.99, currency: "EUR" });
+  expect(parsePrice("eur 0,00")).toEqual({ amount: 0, currency: "EUR" });
 });
 
 test("finds both prices in a sale accessibility label", () => {
