@@ -41,6 +41,13 @@ const embeddedPricePattern = new RegExp(
   "giu",
 );
 
+const currencyCodes = new Set<string>([
+  ...TARGET_CURRENCIES,
+  ...(typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("currency") : []),
+  "USDT",
+  "USDC",
+]);
+
 export function isCurrency(value: unknown): value is Currency {
   return typeof value === "string" && TARGET_CURRENCIES.includes(value as Currency);
 }
@@ -86,7 +93,8 @@ export function findPrices(text: string): PriceMatch[] {
   const matches: PriceMatch[] = [];
   for (const match of text.matchAll(embeddedPricePattern)) {
     const remainder = text.slice(match.index + match[0].length).trimStart();
-    if (/^[A-Z]{3,4}\b/.test(remainder)) {
+    const trailingCode = remainder.match(/^[A-Z]{3,4}\b/)?.[0];
+    if (trailingCode && currencyCodes.has(trailingCode)) {
       continue;
     }
     const price = parsePrice(match[0]);

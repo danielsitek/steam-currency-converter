@@ -49,3 +49,8 @@ test("does not reinterpret qualified dollars or conflicting markers inside label
   expect(findPrices("Price: $9.99!")[0]?.price).toEqual({ amount: 9.99, currency: "USD" });
   expect(findPrices("Price: €19.99 EUR")[0]?.price).toEqual({ amount: 19.99, currency: "EUR" });
 });
+
+test("keeps normal uppercase sale words after a price", () => {
+  expect(findPrices("€19.99 OFF")[0]?.price).toEqual({ amount: 19.99, currency: "EUR" });
+  expect(findPrices("€19.99 HKD")).toEqual([]);
+});
