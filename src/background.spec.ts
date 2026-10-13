@@ -145,3 +145,24 @@ test("aborts a stalled request, falls back, and releases the pending request", a
     timer.mockRestore();
   }
 });
+
+test("refreshes incomplete, invalid-date and future-dated cached records", async () => {
+  for (const value of [
+    { rate: 24 },
+    { rate: 24, date: "garbage", fetchedAt: Date.now() },
+    { rate: 24, date: "2026-02-30", fetchedAt: Date.now() },
+    { rate: 24, date: "2026-10-09", fetchedAt: Date.now() + 60_000 },
+    { rate: 24, date: "2026-10-09", fetchedAt: -1 },
+  ]) {
+    storedRates.set("rate:EUR:CZK", value);
+    expect(await requestRate()).toEqual({ rate: 25, date: "2026-10-10" });
+  }
+});
+
+test("does not use malformed cached records as an offline fallback", async () => {
+  storedRates.set("rate:EUR:CZK", { rate: 24 });
+  fetchRate = async () => {
+    throw new Error("offline");
+  };
+  expect(await requestRate()).toEqual({ error: "offline" });
+});
