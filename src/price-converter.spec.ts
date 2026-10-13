@@ -89,3 +89,23 @@ test("stops a yielded scan when its root is removed", async () => {
   expect(root.isConnected).toBe(false);
   expect(root.textContent).toContain("€");
 });
+
+test("continues scanning surviving siblings when its cursor is removed during a yield", async () => {
+  const root = document.createElement("div");
+  root.innerHTML = "<span>€19.99</span>".repeat(500);
+  document.body.append(root);
+  let calls = 0;
+  const converter = createPriceConverter(
+    async () => {
+      calls++;
+      return { rate: 25, date: "2026-10-13" };
+    },
+    () => "CZK",
+  );
+  setTimeout(() => root.children[49].remove(), 0);
+  await converter.scan(root);
+  expect(root.children.length).toBe(499);
+  expect(root.textContent).not.toContain("€");
+  expect(calls).toBe(1);
+  root.remove();
+});

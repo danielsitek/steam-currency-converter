@@ -76,7 +76,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     return leading + converted + trailing;
   }
 
-  async function convertText(node: Text): Promise<void> {
+  async function convertText(node: Text, lookup: GetRate): Promise<void> {
     if (!node.isConnected || node.parentElement?.closest(ignored)) {
       return;
     }
@@ -97,7 +97,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
       return;
     }
 
-    const rate = await getRate(price.currency, target);
+    const rate = await lookup(price.currency, target);
     if (!rate || textChangedWhileWaiting(node, current, target)) {
       return;
     }
@@ -112,13 +112,14 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
   async function convertMatches(
     matches: PriceMatch[],
     target: Currency,
+    lookup: GetRate,
   ): Promise<Array<string | null>> {
     return Promise.all(
       matches.map(async ({ price, text }) => {
         if (price.currency === target) {
           return text;
         }
-        const rate = await getRate(price.currency, target);
+        const rate = await lookup(price.currency, target);
         return rate ? format(price.amount * rate.rate, target) : null;
       }),
     );
@@ -143,7 +144,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     return rendered + original.slice(offset);
   }
 
-  async function convertLabel(element: Element): Promise<void> {
+  async function convertLabel(element: Element, lookup: GetRate): Promise<void> {
     if (!element.isConnected || element.closest(ignored)) {
       return;
     }
@@ -162,7 +163,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
       return;
     }
 
-    const replacements = await convertMatches(matches, target);
+    const replacements = await convertMatches(matches, target, lookup);
     if (!replacements.every((value): value is string => value !== null)) {
       return;
     }
@@ -176,17 +177,35 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     savedLabels.set(element, { original, rendered, target });
   }
 
-  async function convertNode(node: Node): Promise<void> {
+  async function convertNode(node: Node, lookup: GetRate): Promise<void> {
     if (node.nodeType === Node.TEXT_NODE) {
-      await convertText(node as Text);
+      await convertText(node as Text, lookup);
     } else if (node instanceof Element && node.hasAttribute("aria-label")) {
-      await convertLabel(node);
+      await convertLabel(node, lookup);
     }
   }
 
+  function scanRateLookup(): GetRate {
+    const requests = new Map<string, Promise<Rate | null>>();
+    return (from, to) => {
+      const key = `${from}:${to}`;
+      let request = requests.get(key);
+      if (!request) {
+        request = getRate(from, to);
+        requests.set(key, request);
+      }
+      return request;
+    };
+  }
+
+  function scanInterrupted(root: Node, target: Currency): boolean {
+    return !root.isConnected || document.hidden || getTarget() !== target;
+  }
+
   async function scan(root: Node): Promise<void> {
+    const lookup = scanRateLookup();
     if (root.nodeType === Node.TEXT_NODE) {
-      await convertText(root as Text);
+      await convertText(root as Text, lookup);
       return;
     }
     if (!(root instanceof Element) || root.closest(ignored)) {
@@ -204,10 +223,14 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     let batch: Promise<void>[] = [];
     let started = performance.now();
     while (node) {
-      if (!root.isConnected || document.hidden || getTarget() !== target) {
+      if (scanInterrupted(root, target)) {
         return;
       }
-      batch.push(convertNode(node));
+      if (!root.contains(node)) {
+        walker.currentNode = root;
+        node = root;
+      }
+      batch.push(convertNode(node, lookup));
       node = walker.nextNode();
       if (batch.length >= 100 || performance.now() - started >= 4) {
         await Promise.all(batch);
