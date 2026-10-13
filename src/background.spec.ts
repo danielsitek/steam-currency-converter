@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, expect, test } from "bun:test";
+import { beforeAll, beforeEach, expect, spyOn, test } from "bun:test";
 
 type Reply = { rate: number; date: string } | { error: string };
 type MessageListener = (
@@ -122,4 +122,26 @@ test("rejects malformed exchange rate data", async () => {
   fetchRate = async () => new Response(JSON.stringify({ rate: -2, date: "today" }));
 
   expect(await requestRate()).toEqual({ error: "Invalid exchange rate" });
+});
+
+test("aborts a stalled request, falls back, and releases the pending request", async () => {
+  storedRates.set("rate:EUR:CZK", { rate: 24, date: "2026-10-09", fetchedAt: 0 });
+  const originalTimeout = globalThis.setTimeout;
+  const acceleratedTimeout = ((...args: Parameters<typeof setTimeout>) =>
+    originalTimeout(args[0], 5, ...args.slice(2))) as typeof setTimeout;
+  const timer = spyOn(globalThis, "setTimeout").mockImplementation(acceleratedTimeout);
+  fetchRate = async (_url, options) =>
+    new Promise((_resolve, reject) => {
+      const signal = options?.signal;
+      signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+    });
+  try {
+    expect(await requestRate()).toEqual({ rate: 24, date: "2026-10-09" });
+    storedRates.clear();
+    expect(await requestRate()).toEqual({ error: "Exchange rate request timed out" });
+    fetchRate = async () => new Response(JSON.stringify({ rate: 25, date: "2026-10-10" }));
+    expect(await requestRate()).toEqual({ rate: 25, date: "2026-10-10" });
+  } finally {
+    timer.mockRestore();
+  }
 });

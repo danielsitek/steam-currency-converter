@@ -29,14 +29,23 @@ function parseRateResponse(data: unknown): Pick<Rate, "rate" | "date"> {
 }
 
 async function fetchRate(from: Currency, to: Currency): Promise<Rate> {
-  const response = await fetch(
-    `https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`,
-  );
-  if (!response.ok) {
-    throw new Error(`Exchange rate service returned HTTP ${response.status}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(new Error("Exchange rate request timed out"));
+  }, 10_000);
+  try {
+    const response = await fetch(
+      `https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`,
+      { signal: controller.signal },
+    );
+    if (!response.ok) {
+      throw new Error(`Exchange rate service returned HTTP ${response.status}`);
+    }
+    const data: unknown = await response.json();
+    return { ...parseRateResponse(data), fetchedAt: Date.now() };
+  } finally {
+    clearTimeout(timeout);
   }
-  const data: unknown = await response.json();
-  return { ...parseRateResponse(data), fetchedAt: Date.now() };
 }
 
 export async function getRate(from: Currency, to: Currency): Promise<Rate> {
