@@ -37,7 +37,7 @@ const pricePattern = new RegExp(
 );
 const amountPattern = "[0-9][0-9\\s\\u00a0\\u202f.,]*";
 const embeddedPricePattern = new RegExp(
-  `(?<![\\p{L}\\p{N}$€£])(?:${token}\\s*${amountPattern}(?:\\s*${token})?|${amountPattern}\\s*${token})(?![\\p{L}\\p{N}])`,
+  `(?<![\\p{L}\\p{N}$€£])(?:${token}\\s*${amountPattern}(?:\\s*${token})?|${amountPattern}\\s*${token})(?![\\p{L}\\p{N}.,])`,
   "giu",
 );
 
@@ -85,6 +85,10 @@ export function parsePrice(text: string): Price | null {
 export function findPrices(text: string): PriceMatch[] {
   const matches: PriceMatch[] = [];
   for (const match of text.matchAll(embeddedPricePattern)) {
+    const remainder = text.slice(match.index + match[0].length).trimStart();
+    if (/^[A-Z]{3,4}\b/.test(remainder)) {
+      continue;
+    }
     const price = parsePrice(match[0]);
     if (price) {
       matches.push({
