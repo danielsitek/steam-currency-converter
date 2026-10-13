@@ -92,20 +92,31 @@ export function parsePrice(text: string): Price | null {
 export function findPrices(text: string): PriceMatch[] {
   const matches: PriceMatch[] = [];
   for (const match of text.matchAll(embeddedPricePattern)) {
-    const remainder = text.slice(match.index + match[0].length).trimStart();
-    const trailingCode = remainder.match(/^[A-Z]{3,4}\b/)?.[0];
-    if (trailingCode && currencyCodes.has(trailingCode)) {
+    const price = parsePrice(match[0]);
+    if (!price) {
       continue;
     }
-    const price = parsePrice(match[0]);
-    if (price) {
-      matches.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        text: match[0],
-        price,
-      });
+    const prefix = text
+      .slice(0, match.index)
+      .match(/\b([a-z]{3,4})\s*$/i)?.[1]
+      ?.toUpperCase();
+    const suffix = text
+      .slice(match.index + match[0].length)
+      .trimStart()
+      .match(/^([a-z]{3,4})\b/i)?.[1]
+      ?.toUpperCase();
+    const conflictingCode = [prefix, suffix].some(
+      (code) => code !== undefined && currencyCodes.has(code) && code !== price.currency,
+    );
+    if (conflictingCode) {
+      continue;
     }
+    matches.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      text: match[0],
+      price,
+    });
   }
   return matches;
 }
