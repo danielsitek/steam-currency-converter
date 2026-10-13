@@ -5,6 +5,7 @@ import { createPriceConverter, type Rate } from "./price-converter";
 const rates = new Map<string, Promise<Rate | null>>();
 const queued = new Set<Node>();
 let target: Currency = DEFAULT_CURRENCY;
+let settingsVersion = 0;
 let scheduled = false;
 let scanning = false;
 let needsFullScan = false;
@@ -110,15 +111,25 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-async function loadCurrency(): Promise<void> {
-  const settings = await chrome.storage.sync.get("targetCurrency");
-  target = isCurrency(settings.targetCurrency) ? settings.targetCurrency : DEFAULT_CURRENCY;
+export async function loadCurrency(): Promise<void> {
+  const version = settingsVersion;
+  try {
+    const settings = await chrome.storage.sync.get("targetCurrency");
+    if (version === settingsVersion) {
+      target = isCurrency(settings.targetCurrency) ? settings.targetCurrency : DEFAULT_CURRENCY;
+    }
+  } catch {
+    // Keep the current currency if Chrome storage is temporarily unavailable.
+  }
   queue(document.body);
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "sync" && changes.targetCurrency) {
-    void loadCurrency();
+    settingsVersion++;
+    const value: unknown = changes.targetCurrency.newValue;
+    target = isCurrency(value) ? value : DEFAULT_CURRENCY;
+    queue(document.body);
   }
 });
 
