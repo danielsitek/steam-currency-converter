@@ -108,14 +108,17 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     savedText.set(node, { original, rendered, target });
   }
 
-  async function convertMatches(matches: PriceMatch[], target: Currency): Promise<string[]> {
+  async function convertMatches(
+    matches: PriceMatch[],
+    target: Currency,
+  ): Promise<Array<string | null>> {
     return Promise.all(
       matches.map(async ({ price, text }) => {
         if (price.currency === target) {
           return text;
         }
         const rate = await getRate(price.currency, target);
-        return rate ? format(price.amount * rate.rate, target) : text;
+        return rate ? format(price.amount * rate.rate, target) : null;
       }),
     );
   }
@@ -158,6 +161,9 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     }
 
     const replacements = await convertMatches(matches, target);
+    if (!replacements.every((value): value is string => value !== null)) {
+      return;
+    }
     if (labelChangedWhileWaiting(element, current, target)) {
       return;
     }
