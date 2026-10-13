@@ -35,9 +35,10 @@ const pricePattern = new RegExp(
   `^\\s*(${token})?\\s*([0-9][0-9\\s\\u00a0\\u202f.,]*)\\s*(${token})?\\s*$`,
   "i",
 );
+const amountPattern = "[0-9][0-9\\s\\u00a0\\u202f.,]*";
 const embeddedPricePattern = new RegExp(
-  `${token}\\s*[0-9][0-9\\s\\u00a0\\u202f.,]*|[0-9][0-9\\s\\u00a0\\u202f.,]*\\s*${token}`,
-  "gi",
+  `(?<![\\p{L}\\p{N}$€£])(?:${token}\\s*${amountPattern}(?:\\s*${token})?|${amountPattern}\\s*${token})(?![\\p{L}\\p{N}])`,
+  "giu",
 );
 
 export function isCurrency(value: unknown): value is Currency {

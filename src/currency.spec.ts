@@ -31,3 +31,11 @@ test("finds both prices in a sale accessibility label", () => {
   expect(prices.map((match) => match.text.trim())).toEqual(["29,99€", "14,99€"]);
   expect(prices.map((match) => match.price.amount)).toEqual([29.99, 14.99]);
 });
+
+test("does not reinterpret qualified dollars or conflicting markers inside labels", () => {
+  for (const value of ["CDN$ 9.99", "A$ 9.99", "HK$9.99", "€19.99 USD", "EURope 19.99"]) {
+    expect(findPrices(value)).toEqual([]);
+  }
+  expect(findPrices("Price: $9.99!")[0]?.price).toEqual({ amount: 9.99, currency: "USD" });
+  expect(findPrices("Price: €19.99 EUR")[0]?.price).toEqual({ amount: 19.99, currency: "EUR" });
+});
