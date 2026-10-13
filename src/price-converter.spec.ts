@@ -54,3 +54,38 @@ test("keeps a mixed-currency label intact until all rates are available", async 
   await Bun.sleep(0);
   expect(element.getAttribute("aria-label")).not.toMatch(/[€£]/);
 });
+
+test("lets browser tasks run before a large scan finishes", async () => {
+  const root = document.createElement("div");
+  root.innerHTML = "<span>€19.99</span>".repeat(500);
+  document.body.append(root);
+  const converter = createPriceConverter(
+    async () => ({ rate: 25, date: "2026-10-13" }),
+    () => "CZK",
+  );
+  let convertedAtNextTask = -1;
+  setTimeout(() => {
+    convertedAtNextTask = Array.from(root.children).filter(
+      (element) => !element.textContent?.includes("€"),
+    ).length;
+  }, 0);
+  await converter.scan(root);
+  expect(convertedAtNextTask).toBeGreaterThan(0);
+  expect(convertedAtNextTask).toBeLessThan(500);
+  expect(root.textContent).not.toContain("€");
+  root.remove();
+});
+
+test("stops a yielded scan when its root is removed", async () => {
+  const root = document.createElement("div");
+  root.innerHTML = "<span>€19.99</span>".repeat(500);
+  document.body.append(root);
+  const converter = createPriceConverter(
+    async () => ({ rate: 25, date: "2026-10-13" }),
+    () => "CZK",
+  );
+  setTimeout(() => root.remove(), 0);
+  await converter.scan(root);
+  expect(root.isConnected).toBe(false);
+  expect(root.textContent).toContain("€");
+});

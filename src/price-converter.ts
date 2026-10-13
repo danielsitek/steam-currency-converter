@@ -1,3 +1,4 @@
+import { yieldToBrowser } from "./dom-scheduler";
 import { findPrices, parsePrice, type Currency, type PriceMatch } from "./currency";
 
 export type Rate = { rate: number; date: string };
@@ -66,7 +67,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
   }
 
   function textChangedWhileWaiting(node: Text, current: string, target: Currency): boolean {
-    return getTarget() !== target || node.data !== current || !node.isConnected;
+    return document.hidden || getTarget() !== target || node.data !== current || !node.isConnected;
   }
 
   function keepOriginalWhitespace(original: string, converted: string): string {
@@ -125,6 +126,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
 
   function labelChangedWhileWaiting(element: Element, current: string, target: Currency): boolean {
     return (
+      document.hidden ||
       getTarget() !== target ||
       element.getAttribute("aria-label") !== current ||
       !element.isConnected
@@ -174,24 +176,47 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     savedLabels.set(element, { original, rendered, target });
   }
 
-  function scan(root: Node): void {
+  async function convertNode(node: Node): Promise<void> {
+    if (node.nodeType === Node.TEXT_NODE) {
+      await convertText(node as Text);
+    } else if (node instanceof Element && node.hasAttribute("aria-label")) {
+      await convertLabel(node);
+    }
+  }
+
+  async function scan(root: Node): Promise<void> {
     if (root.nodeType === Node.TEXT_NODE) {
-      void convertText(root as Text);
+      await convertText(root as Text);
       return;
     }
-    if (!(root instanceof Element) || root.matches(ignored)) {
+    if (!(root instanceof Element) || root.closest(ignored)) {
       return;
     }
-    if (root.hasAttribute("aria-label")) {
-      void convertLabel(root);
+    const target = getTarget();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        return node instanceof Element && node.matches(ignored)
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    let node: Node | null = root;
+    let batch: Promise<void>[] = [];
+    let started = performance.now();
+    while (node) {
+      if (!root.isConnected || document.hidden || getTarget() !== target) {
+        return;
+      }
+      batch.push(convertNode(node));
+      node = walker.nextNode();
+      if (batch.length >= 100 || performance.now() - started >= 4) {
+        await Promise.all(batch);
+        batch = [];
+        await yieldToBrowser();
+        started = performance.now();
+      }
     }
-    for (const element of root.querySelectorAll("[aria-label]")) {
-      void convertLabel(element);
-    }
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      void convertText(walker.currentNode as Text);
-    }
+    await Promise.all(batch);
   }
 
   return { scan };

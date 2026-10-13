@@ -1,3 +1,4 @@
+import { uniqueScanRoots, yieldToBrowser } from "./dom-scheduler";
 import { DEFAULT_CURRENCY, isCurrency, type Currency } from "./currency";
 import { createPriceConverter, type Rate } from "./price-converter";
 
@@ -5,6 +6,7 @@ const rates = new Map<string, Promise<Rate | null>>();
 const queued = new Set<Node>();
 let target: Currency = DEFAULT_CURRENCY;
 let scheduled = false;
+let scanning = false;
 let needsFullScan = false;
 let scheduleVersion = 0;
 
@@ -54,7 +56,11 @@ function queue(root: Node): void {
   } else if (root.isConnected) {
     queued.add(root);
   }
-  if (scheduled) {
+  scheduleScan();
+}
+
+function scheduleScan(): void {
+  if (scheduled || scanning || queued.size === 0) {
     return;
   }
 
@@ -70,16 +76,30 @@ function queue(root: Node): void {
       return;
     }
 
-    const roots = Array.from(queued);
+    const roots = uniqueScanRoots(queued);
     queued.clear();
     needsFullScan = false;
-    for (const node of roots) {
-      if (!node.isConnected) {
-        continue;
-      }
-      converter.scan(node);
-    }
+    scanning = true;
+    void scanRoots(roots).finally(() => {
+      scanning = false;
+      scheduleScan();
+    });
   });
+}
+
+async function scanRoots(roots: Node[]): Promise<void> {
+  let started = performance.now();
+  for (const node of roots) {
+    if (document.hidden) {
+      deferFullScan();
+      return;
+    }
+    await converter.scan(node);
+    if (performance.now() - started >= 4) {
+      await yieldToBrowser();
+      started = performance.now();
+    }
+  }
 }
 
 document.addEventListener("visibilitychange", () => {
