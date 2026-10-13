@@ -1,4 +1,4 @@
-import { beforeAll, expect, test } from "bun:test";
+import { beforeAll, beforeEach, expect, test } from "bun:test";
 import { Window } from "happy-dom";
 
 const window = new Window();
@@ -16,6 +16,10 @@ status.id = "status";
 window.document.body.append(select, status);
 let savedCurrency: string | undefined;
 let rejectSave = false;
+let readSettings: () => Promise<{ targetCurrency: string }> = async () => ({
+  targetCurrency: "GBP",
+});
+let loadCurrency: () => Promise<void>;
 
 Object.defineProperty(globalThis, "document", {
   configurable: true,
@@ -27,7 +31,7 @@ Object.defineProperty(globalThis, "chrome", {
     storage: {
       sync: {
         get() {
-          return Promise.resolve({ targetCurrency: "GBP" });
+          return readSettings();
         },
         set(settings: { targetCurrency: string }) {
           if (rejectSave) {
@@ -42,7 +46,7 @@ Object.defineProperty(globalThis, "chrome", {
 });
 
 beforeAll(async () => {
-  await import("./options");
+  ({ loadCurrency } = await import("./options"));
 });
 
 test("loads the saved target currency", async () => {
@@ -66,4 +70,46 @@ test("reports a storage error", async () => {
   await Bun.sleep(0);
 
   expect(status.textContent).toBe("Could not save the setting.");
+});
+
+beforeEach(() => {
+  rejectSave = false;
+  savedCurrency = undefined;
+  readSettings = async () => ({ targetCurrency: "GBP" });
+});
+
+test("disables changes until delayed settings finish loading", async () => {
+  let respond!: (settings: { targetCurrency: string }) => void;
+  readSettings = () =>
+    new Promise((resolve) => {
+      respond = resolve;
+    });
+  const loading = loadCurrency();
+  expect(select.disabled).toBe(true);
+  select.value = "CZK";
+  select.dispatchEvent(new window.Event("change"));
+  expect(savedCurrency).toBeUndefined();
+  respond({ targetCurrency: "GBP" });
+  await loading;
+  expect(select.disabled).toBe(false);
+  expect(select.value).toBe("GBP");
+  select.value = "CZK";
+  select.dispatchEvent(new window.Event("change"));
+  await Bun.sleep(0);
+  expect(savedCurrency).toBe("CZK");
+  expect(select.value).toBe("CZK");
+});
+
+test("recovers from a settings read failure and allows saving", async () => {
+  readSettings = async () => {
+    throw new Error("Storage unavailable");
+  };
+  await loadCurrency();
+  expect(select.value).toBe("CZK");
+  expect(select.disabled).toBe(false);
+  expect(status.textContent).toContain("Could not load");
+  select.value = "GBP";
+  select.dispatchEvent(new window.Event("change"));
+  await Bun.sleep(0);
+  expect(savedCurrency).toBe("GBP");
 });
