@@ -31,11 +31,8 @@ const symbols: Record<string, Currency> = {
   CHF: "CHF",
 };
 const token = "(?:€|£|\\$|Kč|zł|EUR|GBP|USD|CZK|PLN|CHF)";
-const pricePattern = new RegExp(
-  `^\\s*(${token})?\\s*([0-9][0-9\\s\\u00a0\\u202f.,]*)\\s*(${token})?\\s*$`,
-  "i",
-);
 const amountPattern = "[0-9][0-9\\s\\u00a0\\u202f.,]*";
+const pricePattern = new RegExp(`^\\s*(${token})?\\s*(${amountPattern})\\s*(${token})?\\s*$`, "i");
 const embeddedPricePattern = new RegExp(
   `(?<![\\p{L}\\p{N}$€£])(?:${token}\\s*${amountPattern}(?:\\s*${token})?|${amountPattern}\\s*${token})(?![\\p{L}\\p{N}.,])`,
   "giu",
@@ -89,6 +86,26 @@ export function parsePrice(text: string): Price | null {
   return { amount, currency };
 }
 
+function hasConflictingCurrencyCode(
+  text: string,
+  start: number,
+  end: number,
+  currency: Currency,
+): boolean {
+  const prefix = text
+    .slice(0, start)
+    .match(/\b([a-z]{3,4})\s*$/i)?.[1]
+    ?.toUpperCase();
+  const suffix = text
+    .slice(end)
+    .trimStart()
+    .match(/^([a-z]{3,4})\b/i)?.[1]
+    ?.toUpperCase();
+  return [prefix, suffix].some(
+    (code) => code !== undefined && currencyCodes.has(code) && code !== currency,
+  );
+}
+
 export function findPrices(text: string): PriceMatch[] {
   const matches: PriceMatch[] = [];
   for (const match of text.matchAll(embeddedPricePattern)) {
@@ -96,24 +113,14 @@ export function findPrices(text: string): PriceMatch[] {
     if (!price) {
       continue;
     }
-    const prefix = text
-      .slice(0, match.index)
-      .match(/\b([a-z]{3,4})\s*$/i)?.[1]
-      ?.toUpperCase();
-    const suffix = text
-      .slice(match.index + match[0].length)
-      .trimStart()
-      .match(/^([a-z]{3,4})\b/i)?.[1]
-      ?.toUpperCase();
-    const conflictingCode = [prefix, suffix].some(
-      (code) => code !== undefined && currencyCodes.has(code) && code !== price.currency,
-    );
-    if (conflictingCode) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (hasConflictingCurrencyCode(text, start, end, price.currency)) {
       continue;
     }
     matches.push({
-      start: match.index,
-      end: match.index + match[0].length,
+      start,
+      end,
       text: match[0],
       price,
     });
