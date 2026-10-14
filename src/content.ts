@@ -11,27 +11,30 @@ let scanning = false;
 let needsFullScan = false;
 let scheduleVersion = 0;
 
+async function requestRate(from: Currency, to: Currency): Promise<Rate | null> {
+  try {
+    const result: unknown = await chrome.runtime.sendMessage({ type: "getRate", from, to });
+    if (!result || typeof result !== "object" || !("rate" in result) || !("date" in result)) {
+      return null;
+    }
+    return typeof result.rate === "number" &&
+      Number.isFinite(result.rate) &&
+      result.rate > 0 &&
+      typeof result.date === "string"
+      ? { rate: result.rate, date: result.date }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function getRate(from: Currency, to: Currency): Promise<Rate | null> {
   const key = `${from}:${to}`;
   const existing = rates.get(key);
   if (existing) {
     return existing;
   }
-  const request = chrome.runtime
-    .sendMessage({ type: "getRate", from, to })
-    .then((result: unknown): Rate | null => {
-      if (!result || typeof result !== "object" || !("rate" in result) || !("date" in result)) {
-        return null;
-      }
-      return typeof result.rate === "number" &&
-        Number.isFinite(result.rate) &&
-        result.rate > 0 &&
-        typeof result.date === "string"
-        ? { rate: result.rate, date: result.date }
-        : null;
-    })
-    .catch(() => null)
-    .finally(() => rates.delete(key));
+  const request = requestRate(from, to).finally(() => rates.delete(key));
   rates.set(key, request);
   return request;
 }

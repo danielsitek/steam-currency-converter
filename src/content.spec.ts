@@ -38,7 +38,7 @@ Object.defineProperty(globalThis, "chrome", {
   configurable: true,
   value: {
     runtime: {
-      async sendMessage() {
+      sendMessage() {
         rateRequests++;
         return replyToRateRequest();
       },
@@ -239,4 +239,21 @@ test("continues scanning when settings storage is unavailable", async () => {
   price.textContent = "19,99€";
   document.body.append(price);
   await waitFor(() => price.textContent?.includes("Kč") ?? false);
+});
+
+test("contains synchronous messaging failures and allows a later scan to retry", async () => {
+  replyToRateRequest = () => {
+    throw new Error("Extension context invalidated");
+  };
+  const price = document.createElement("div");
+  price.textContent = "19,99€";
+  document.body.append(price);
+  await waitFor(() => rateRequests > 0);
+  await Bun.sleep(20);
+  expect(price.textContent).toBe("19,99€");
+
+  replyToRateRequest = async () => ({ rate: 25, date: "2026-10-10" });
+  price.firstChild!.textContent = "29,99€";
+  await waitFor(() => price.textContent?.includes("Kč") ?? false);
+  expect(price.textContent).toContain("749,75");
 });
