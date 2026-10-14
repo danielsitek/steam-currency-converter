@@ -61,3 +61,9 @@ test("keeps normal uppercase sale words after a price", () => {
 test("accepts matching currency qualifiers before a symbol", () => {
   expect(findPrices("USD $9.99")[0]?.price).toEqual({ amount: 9.99, currency: "USD" });
 });
+
+test("rejects Canadian dollar aliases separated from the symbol", () => {
+  for (const text of ["CDN $9.99", "$9.99 CDN", "Price: cdn\u00a0$9.99"]) {
+    expect(findPrices(text)).toEqual([]);
+  }
+});

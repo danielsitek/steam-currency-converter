@@ -101,9 +101,14 @@ function hasConflictingCurrencyCode(
     .trimStart()
     .match(/^([a-z]{3,4})\b/i)?.[1]
     ?.toUpperCase();
-  return [prefix, suffix].some(
-    (code) => code !== undefined && currencyCodes.has(code) && code !== currency,
-  );
+  return [prefix, suffix].some((code) => {
+    const normalizedCode = code === "CDN" ? "CAD" : code;
+    return (
+      normalizedCode !== undefined &&
+      currencyCodes.has(normalizedCode) &&
+      normalizedCode !== currency
+    );
+  });
 }
 
 export function findPrices(text: string): PriceMatch[] {
