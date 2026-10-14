@@ -21,3 +21,4 @@ export function uniqueScanRoots(roots: Set<Node>): Node[] {
     return root.isConnected;
   });
 }
+export const SCAN_TIME_BUDGET_MS = 4;

@@ -1,7 +1,8 @@
-import { yieldToBrowser } from "./dom-scheduler";
+import { SCAN_TIME_BUDGET_MS, yieldToBrowser } from "./dom-scheduler";
 import { findPrices, parsePrice, type Currency, type PriceMatch } from "./currency";
 
 export type Rate = { rate: number; date: string };
+const MAX_SCAN_BATCH_NODES = 100;
 type Saved = { original: string; rendered: string; target: Currency };
 type GetRate = (from: Currency, to: Currency) => Promise<Rate | null>;
 
@@ -232,7 +233,10 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
       }
       batch.push(convertNode(node, lookup));
       node = walker.nextNode();
-      if (batch.length >= 100 || performance.now() - started >= 4) {
+      if (
+        batch.length >= MAX_SCAN_BATCH_NODES ||
+        performance.now() - started >= SCAN_TIME_BUDGET_MS
+      ) {
         await Promise.all(batch);
         batch = [];
         await yieldToBrowser();

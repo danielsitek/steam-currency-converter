@@ -1,4 +1,4 @@
-import { uniqueScanRoots, yieldToBrowser } from "./dom-scheduler";
+import { SCAN_TIME_BUDGET_MS, uniqueScanRoots, yieldToBrowser } from "./dom-scheduler";
 import { DEFAULT_CURRENCY, isCurrency, type Currency } from "./currency";
 import { createPriceConverter, type Rate } from "./price-converter";
 
@@ -96,7 +96,7 @@ async function scanRoots(roots: Node[]): Promise<void> {
       return;
     }
     await converter.scan(node);
-    if (performance.now() - started >= 4) {
+    if (performance.now() - started >= SCAN_TIME_BUDGET_MS) {
       await yieldToBrowser();
       started = performance.now();
     }
