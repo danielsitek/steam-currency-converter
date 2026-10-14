@@ -9,11 +9,29 @@ function validRate(value: unknown): value is number {
 }
 
 function validDate(value: unknown): value is string {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value
+  );
+}
+
+function validTimestamp(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= Date.now();
 }
 
 function hasUsableRate(value: unknown): value is Rate {
-  return value !== null && typeof value === "object" && "rate" in value && validRate(value.rate);
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "rate" in value &&
+    validRate(value.rate) &&
+    "date" in value &&
+    validDate(value.date) &&
+    "fetchedAt" in value &&
+    validTimestamp(value.fetchedAt)
+  );
 }
 
 function parseRateResponse(data: unknown): Pick<Rate, "rate" | "date"> {
@@ -29,14 +47,23 @@ function parseRateResponse(data: unknown): Pick<Rate, "rate" | "date"> {
 }
 
 async function fetchRate(from: Currency, to: Currency): Promise<Rate> {
-  const response = await fetch(
-    `https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`,
-  );
-  if (!response.ok) {
-    throw new Error(`Exchange rate service returned HTTP ${response.status}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(new Error("Exchange rate request timed out"));
+  }, 10_000);
+  try {
+    const response = await fetch(
+      `https://api.frankfurter.dev/v2/rate/${from.toLowerCase()}/${to.toLowerCase()}`,
+      { signal: controller.signal },
+    );
+    if (!response.ok) {
+      throw new Error(`Exchange rate service returned HTTP ${response.status}`);
+    }
+    const data: unknown = await response.json();
+    return { ...parseRateResponse(data), fetchedAt: Date.now() };
+  } finally {
+    clearTimeout(timeout);
   }
-  const data: unknown = await response.json();
-  return { ...parseRateResponse(data), fetchedAt: Date.now() };
 }
 
 export async function getRate(from: Currency, to: Currency): Promise<Rate> {

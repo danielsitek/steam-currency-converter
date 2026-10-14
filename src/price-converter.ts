@@ -1,6 +1,8 @@
+import { SCAN_TIME_BUDGET_MS, yieldToBrowser } from "./dom-scheduler";
 import { findPrices, parsePrice, type Currency, type PriceMatch } from "./currency";
 
 export type Rate = { rate: number; date: string };
+const MAX_SCAN_BATCH_NODES = 100;
 type Saved = { original: string; rendered: string; target: Currency };
 type GetRate = (from: Currency, to: Currency) => Promise<Rate | null>;
 
@@ -66,7 +68,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
   }
 
   function textChangedWhileWaiting(node: Text, current: string, target: Currency): boolean {
-    return getTarget() !== target || node.data !== current || !node.isConnected;
+    return document.hidden || getTarget() !== target || node.data !== current || !node.isConnected;
   }
 
   function keepOriginalWhitespace(original: string, converted: string): string {
@@ -75,7 +77,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     return leading + converted + trailing;
   }
 
-  async function convertText(node: Text): Promise<void> {
+  async function convertText(node: Text, lookup: GetRate): Promise<void> {
     if (!node.isConnected || node.parentElement?.closest(ignored)) {
       return;
     }
@@ -96,7 +98,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
       return;
     }
 
-    const rate = await getRate(price.currency, target);
+    const rate = await lookup(price.currency, target);
     if (!rate || textChangedWhileWaiting(node, current, target)) {
       return;
     }
@@ -108,20 +110,25 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     savedText.set(node, { original, rendered, target });
   }
 
-  async function convertMatches(matches: PriceMatch[], target: Currency): Promise<string[]> {
+  async function convertMatches(
+    matches: PriceMatch[],
+    target: Currency,
+    lookup: GetRate,
+  ): Promise<Array<string | null>> {
     return Promise.all(
       matches.map(async ({ price, text }) => {
         if (price.currency === target) {
           return text;
         }
-        const rate = await getRate(price.currency, target);
-        return rate ? format(price.amount * rate.rate, target) : text;
+        const rate = await lookup(price.currency, target);
+        return rate ? format(price.amount * rate.rate, target) : null;
       }),
     );
   }
 
   function labelChangedWhileWaiting(element: Element, current: string, target: Currency): boolean {
     return (
+      document.hidden ||
       getTarget() !== target ||
       element.getAttribute("aria-label") !== current ||
       !element.isConnected
@@ -138,7 +145,7 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     return rendered + original.slice(offset);
   }
 
-  async function convertLabel(element: Element): Promise<void> {
+  async function convertLabel(element: Element, lookup: GetRate): Promise<void> {
     if (!element.isConnected || element.closest(ignored)) {
       return;
     }
@@ -157,7 +164,10 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
       return;
     }
 
-    const replacements = await convertMatches(matches, target);
+    const replacements = await convertMatches(matches, target, lookup);
+    if (!replacements.every((value): value is string => value !== null)) {
+      return;
+    }
     if (labelChangedWhileWaiting(element, current, target)) {
       return;
     }
@@ -168,24 +178,72 @@ export function createPriceConverter(getRate: GetRate, getTarget: () => Currency
     savedLabels.set(element, { original, rendered, target });
   }
 
-  function scan(root: Node): void {
+  async function convertNode(node: Node, lookup: GetRate): Promise<void> {
+    if (node.nodeType === Node.TEXT_NODE) {
+      await convertText(node as Text, lookup);
+    } else if (node instanceof Element && node.hasAttribute("aria-label")) {
+      await convertLabel(node, lookup);
+    }
+  }
+
+  function scanRateLookup(): GetRate {
+    const requests = new Map<string, Promise<Rate | null>>();
+    return (from, to) => {
+      const key = `${from}:${to}`;
+      let request = requests.get(key);
+      if (!request) {
+        request = getRate(from, to);
+        requests.set(key, request);
+      }
+      return request;
+    };
+  }
+
+  function scanInterrupted(root: Node, target: Currency): boolean {
+    return !root.isConnected || document.hidden || getTarget() !== target;
+  }
+
+  async function scan(root: Node): Promise<void> {
+    const lookup = scanRateLookup();
     if (root.nodeType === Node.TEXT_NODE) {
-      void convertText(root as Text);
+      await convertText(root as Text, lookup);
       return;
     }
-    if (!(root instanceof Element) || root.matches(ignored)) {
+    if (!(root instanceof Element) || root.closest(ignored)) {
       return;
     }
-    if (root.hasAttribute("aria-label")) {
-      void convertLabel(root);
+    const target = getTarget();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        return node instanceof Element && node.matches(ignored)
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    let node: Node | null = root;
+    let batch: Promise<void>[] = [];
+    let started = performance.now();
+    while (node) {
+      if (scanInterrupted(root, target)) {
+        return;
+      }
+      if (!root.contains(node)) {
+        walker.currentNode = root;
+        node = root;
+      }
+      batch.push(convertNode(node, lookup));
+      node = walker.nextNode();
+      if (
+        batch.length >= MAX_SCAN_BATCH_NODES ||
+        performance.now() - started >= SCAN_TIME_BUDGET_MS
+      ) {
+        await Promise.all(batch);
+        batch = [];
+        await yieldToBrowser();
+        started = performance.now();
+      }
     }
-    for (const element of root.querySelectorAll("[aria-label]")) {
-      void convertLabel(element);
-    }
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      void convertText(walker.currentNode as Text);
-    }
+    await Promise.all(batch);
   }
 
   return { scan };

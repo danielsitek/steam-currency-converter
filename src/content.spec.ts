@@ -5,6 +5,8 @@ const browserWindow = new Window({ url: "https://store.steampowered.com/app/123"
 const document = browserWindow.document;
 Object.defineProperty(browserWindow.navigator, "language", { configurable: true, value: "cs-CZ" });
 let targetCurrency = "CZK";
+let readSettings: () => Promise<{ targetCurrency: string }> = async () => ({ targetCurrency });
+let loadCurrency: () => Promise<void>;
 let rateRequests = 0;
 let hidden = false;
 let frameCalls = 0;
@@ -36,7 +38,7 @@ Object.defineProperty(globalThis, "chrome", {
   configurable: true,
   value: {
     runtime: {
-      async sendMessage() {
+      sendMessage() {
         rateRequests++;
         return replyToRateRequest();
       },
@@ -44,7 +46,7 @@ Object.defineProperty(globalThis, "chrome", {
     storage: {
       sync: {
         async get() {
-          return { targetCurrency };
+          return readSettings();
         },
       },
       onChanged: {
@@ -67,16 +69,17 @@ async function waitFor(assertion: () => boolean): Promise<void> {
 }
 
 beforeAll(async () => {
-  await import("./content");
+  ({ loadCurrency } = await import("./content"));
 });
 
 beforeEach(async () => {
   document.body.replaceChildren();
   targetCurrency = "CZK";
+  readSettings = async () => ({ targetCurrency });
   hidden = false;
   rateRequests = 0;
   replyToRateRequest = async () => ({ rate: 25, date: "2026-10-10" });
-  onStorageChanged({ targetCurrency: {} }, "sync");
+  onStorageChanged({ targetCurrency: { newValue: targetCurrency } }, "sync");
   await Bun.sleep(0);
 });
 
@@ -119,7 +122,7 @@ test("reconverts edited source text and restores it when the target matches", as
   expect(price.textContent).toContain("749,75");
 
   targetCurrency = "EUR";
-  onStorageChanged({ targetCurrency: {} }, "sync");
+  onStorageChanged({ targetCurrency: { newValue: targetCurrency } }, "sync");
   await waitFor(() => price.textContent === "29,99€");
   expect(price.hasAttribute("title")).toBe(false);
 });
@@ -148,7 +151,7 @@ test("does not apply a pending rate after the target currency changes", async ()
   await waitFor(() => typeof respond === "function");
 
   targetCurrency = "EUR";
-  onStorageChanged({ targetCurrency: {} }, "sync");
+  onStorageChanged({ targetCurrency: { newValue: targetCurrency } }, "sync");
   respond({ rate: 25, date: "2026-10-10" });
   await Bun.sleep(20);
 
@@ -207,4 +210,50 @@ test("defers hidden-page mutations and scans the live page when visible again", 
 
   await waitFor(() => livePrice.textContent?.includes("Kč") ?? false);
   expect(livePrice.textContent).toContain("749,75");
+});
+
+test("keeps a newer currency change when the initial settings read completes late", async () => {
+  let respond!: (value: { targetCurrency: string }) => void;
+  readSettings = () =>
+    new Promise((resolve) => {
+      respond = resolve;
+    });
+  const loading = loadCurrency();
+  targetCurrency = "EUR";
+  onStorageChanged({ targetCurrency: { newValue: targetCurrency } }, "sync");
+  respond({ targetCurrency: "CZK" });
+  await loading;
+  const price = document.createElement("div");
+  price.textContent = "19,99€";
+  document.body.append(price);
+  await Bun.sleep(20);
+  expect(price.textContent).toBe("19,99€");
+});
+
+test("continues scanning when settings storage is unavailable", async () => {
+  readSettings = async () => {
+    throw new Error("Storage unavailable");
+  };
+  await loadCurrency();
+  const price = document.createElement("div");
+  price.textContent = "19,99€";
+  document.body.append(price);
+  await waitFor(() => price.textContent?.includes("Kč") ?? false);
+});
+
+test("contains synchronous messaging failures and allows a later scan to retry", async () => {
+  replyToRateRequest = () => {
+    throw new Error("Extension context invalidated");
+  };
+  const price = document.createElement("div");
+  price.textContent = "19,99€";
+  document.body.append(price);
+  await waitFor(() => rateRequests > 0);
+  await Bun.sleep(20);
+  expect(price.textContent).toBe("19,99€");
+
+  replyToRateRequest = async () => ({ rate: 25, date: "2026-10-10" });
+  price.firstChild!.textContent = "29,99€";
+  await waitFor(() => price.textContent?.includes("Kč") ?? false);
+  expect(price.textContent).toContain("749,75");
 });

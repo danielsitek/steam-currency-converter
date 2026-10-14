@@ -31,14 +31,19 @@ const symbols: Record<string, Currency> = {
   CHF: "CHF",
 };
 const token = "(?:€|£|\\$|Kč|zł|EUR|GBP|USD|CZK|PLN|CHF)";
-const pricePattern = new RegExp(
-  `^\\s*(${token})?\\s*([0-9][0-9\\s\\u00a0\\u202f.,]*)\\s*(${token})?\\s*$`,
-  "i",
-);
+const amountPattern = "[0-9][0-9\\s\\u00a0\\u202f.,]*";
+const pricePattern = new RegExp(`^\\s*(${token})?\\s*(${amountPattern})\\s*(${token})?\\s*$`, "i");
 const embeddedPricePattern = new RegExp(
-  `${token}\\s*[0-9][0-9\\s\\u00a0\\u202f.,]*|[0-9][0-9\\s\\u00a0\\u202f.,]*\\s*${token}`,
-  "gi",
+  `(?<![\\p{L}\\p{N}$€£])(?:${token}\\s*${amountPattern}(?:\\s*${token})?|${amountPattern}\\s*${token})(?![\\p{L}\\p{N}.,])`,
+  "giu",
 );
+
+const currencyCodes = new Set<string>([
+  ...TARGET_CURRENCIES,
+  ...(typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("currency") : []),
+  "USDT",
+  "USDC",
+]);
 
 export function isCurrency(value: unknown): value is Currency {
   return typeof value === "string" && TARGET_CURRENCIES.includes(value as Currency);
@@ -81,18 +86,49 @@ export function parsePrice(text: string): Price | null {
   return { amount, currency };
 }
 
+function hasConflictingCurrencyCode(
+  text: string,
+  start: number,
+  end: number,
+  currency: Currency,
+): boolean {
+  const prefix = text
+    .slice(0, start)
+    .match(/\b([a-z]{3,4})\s*$/i)?.[1]
+    ?.toUpperCase();
+  const suffix = text
+    .slice(end)
+    .trimStart()
+    .match(/^([a-z]{3,4})\b/i)?.[1]
+    ?.toUpperCase();
+  return [prefix, suffix].some((code) => {
+    const normalizedCode = code === "CDN" ? "CAD" : code;
+    return (
+      normalizedCode !== undefined &&
+      currencyCodes.has(normalizedCode) &&
+      normalizedCode !== currency
+    );
+  });
+}
+
 export function findPrices(text: string): PriceMatch[] {
   const matches: PriceMatch[] = [];
   for (const match of text.matchAll(embeddedPricePattern)) {
     const price = parsePrice(match[0]);
-    if (price) {
-      matches.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        text: match[0],
-        price,
-      });
+    if (!price) {
+      continue;
     }
+    const start = match.index;
+    const end = start + match[0].length;
+    if (hasConflictingCurrencyCode(text, start, end, price.currency)) {
+      continue;
+    }
+    matches.push({
+      start,
+      end,
+      text: match[0],
+      price,
+    });
   }
   return matches;
 }
